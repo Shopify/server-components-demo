@@ -7,7 +7,7 @@
  */
 
 import {useState, unstable_useTransition} from 'react';
-import {createFromReadableStream} from 'react-server-dom-webpack';
+import {createFromReadableStream} from 'react-server-dom-esbuild';
 
 import NotePreview from './NotePreview';
 import {useRefresh} from './Cache.client';

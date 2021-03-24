@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="description" content="React with Server Components demo">
+    <meta name="description" content="React with Server Components demo" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="style.css" />
     <title>React Notes</title>
@@ -10,6 +10,24 @@
   <body>
     <div id="root"></div>
     <script>
+      global = window;
+
+      const __esbuild__module_map__ = new Map();
+
+      global.__esbuild_module_load__ =
+        global.__esbuild_module_load__ ||
+        async function (moduleId) {
+          const mod = await import(moduleId);
+          __esbuild__module_map__.set(moduleId, mod);
+          return mod;
+        };
+
+      global.__esbuild_require__ =
+        global.__esbuild_require__ ||
+        function (moduleId) {
+          return __esbuild__module_map__.get(moduleId);
+        };
+
       // In development, we restart the server on every edit.
       // For the purposes of this demo, retry fetch automatically.
       let nativeFetch = window.fetch;
@@ -18,15 +36,16 @@
           try {
             return await nativeFetch(...args);
           } catch (e) {
-            if (args[1] && args[1].method !== 'GET') {
+            if (args[1] && args[1].method !== "GET") {
               // Don't retry mutations to avoid confusion
               throw e;
             }
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise((resolve) => setTimeout(resolve, 500));
           }
         }
         return nativeFetch(...args);
-      }
+      };
     </script>
+    <script src="index.client.js" type="module"></script>
   </body>
 </html>
