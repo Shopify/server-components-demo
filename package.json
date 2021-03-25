@@ -15,6 +15,7 @@
     "excerpts": "^0.0.3",
     "express": "^4.17.1",
     "marked": "^1.2.5",
+    "morgan": "^1.10.0",
     "nodemon": "^2.0.6",
     "object-assign": "^4.1.1",
     "pg": "^8.5.1",
@@ -28,7 +29,7 @@
   },
   "scripts": {
     "dev": "node scripts/build.js && NODE_PATH=vendor node --conditions=react-server dist/api.server.js",
-    "dev:watch": "nodemon -w src -x \"npm run dev\"",
+    "dev:watch": "nodemon -w src -w vendor -x \"npm run dev\"",
     "# start #": "concurrently \"npm run server:dev\" \"npm run bundler:dev\"",
     "# start:prod #": "concurrently \"npm run server:prod\" \"npm run bundler:prod\"",
     "# server:dev #": "cross-env NODE_ENV=development nodemon -- --conditions=react-server server",

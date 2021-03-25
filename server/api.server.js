@@ -9,6 +9,7 @@
 'use strict';
 
 import express from 'express';
+import morgan from 'morgan';
 import compress from 'compression';
 import {promises, readFileSync} from 'fs';
 
@@ -27,6 +28,7 @@ const pool = new Pool(credentials);
 
 const PORT = 4000;
 const app = express();
+app.use(morgan('dev'))
 
 app.use(compress());
 app.use(express.json());
