@@ -35,7 +35,8 @@
     "bundler:dev": "cross-env NODE_ENV=development nodemon -- scripts/build.js",
     "bundler:prod": "cross-env NODE_ENV=production nodemon -- scripts/build.js",
     "prettier": "prettier --write **/*.js",
-    "seed": "node ./scripts/seed.js"
+    "seed": "node ./scripts/seed.js",
+    "psql": "docker-compose exec postgres psql -d notesapi -U notesadmin"
   },
   "nodemonConfig": {
     "ignore": [
