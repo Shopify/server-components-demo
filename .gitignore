@@ -11,6 +11,7 @@
 # production
 /build
 /dist
+/dist_server
 
 # notes
 notes/*.md

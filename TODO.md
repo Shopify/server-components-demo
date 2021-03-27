@@ -12,6 +12,23 @@
 
 - types and stuff 
 
+- I don't think it's picking up the right react-server package (since we're generating one based on a different host config). might have to add more conditions to exports. dunno. 
+
+- routing 
+- context 
+- "ssr"/"ssg"
+
+- instead of pipeToNodeWritable, if we can get a plain iterable, can avoid bubdling a bunch of stuff 
+
+- need to do an esbuild version of the build/deploy script 
+
+
+- /client 
+  - index.html has to point to the deployed script 
+  
+
+- /worker 
+
 
 misc
 ---
@@ -26,3 +43,11 @@ misc
 //   )
 //   .filter((x) => !['path', 'url', 'punycode', 'querystring', 'fs'].includes(x))
 //   .sort();
+
+
+var global = self;
+var process = {env:{}};
+var require = undefined;
+function setImmediate(fn){
+  setTimeout(fn, 0)
+}

@@ -10,20 +10,14 @@
 
 import express from 'express';
 import compress from 'compression';
-import {promises, readFileSync} from 'fs';
+import {readFileSync} from 'fs';
 
 import {pipeToNodeWritable} from 'react-server-dom-esbuild/writer';
 import path from 'path';
-import {Pool} from 'pg';
 import React from 'react';
 import ReactApp from '../src/App.server';
 
-const {unlink, writeFile} = promises;
-
-import credentials from '../credentials';
-
-// Don't keep credentials in the source tree in a real app!
-const pool = new Pool(credentials);
+import * as simple from '../src/simple-notes-db';
 
 const PORT = 4000;
 const app = express();
@@ -85,22 +79,12 @@ app.get('/react', function (req, res) {
   sendResponse(req, res, null);
 });
 
-const NOTES_PATH = path.resolve(__dirname, '../notes');
-
 app.post(
   '/notes',
   handleErrors(async function (req, res) {
-    const now = new Date();
-    const result = await pool.query(
-      'insert into notes (title, body, created_at, updated_at) values ($1, $2, $3, $3) returning id',
-      [req.body.title, req.body.body, now]
-    );
-    const insertedId = result.rows[0].id;
-    await writeFile(
-      path.resolve(NOTES_PATH, `${insertedId}.md`),
-      req.body.body,
-      'utf8'
-    );
+    const {title, body} = req.body;
+    const note = await simple.create({title, body});
+    const insertedId = note.id;
     sendResponse(req, res, insertedId);
   })
 );
@@ -108,17 +92,9 @@ app.post(
 app.put(
   '/notes/:id',
   handleErrors(async function (req, res) {
-    const now = new Date();
     const updatedId = Number(req.params.id);
-    await pool.query(
-      'update notes set title = $1, body = $2, updated_at = $3 where id = $4',
-      [req.body.title, req.body.body, now, updatedId]
-    );
-    await writeFile(
-      path.resolve(NOTES_PATH, `${updatedId}.md`),
-      req.body.body,
-      'utf8'
-    );
+    const {title, body} = req.body;
+    await simple.update({title, body, id: updatedId});
     sendResponse(req, res, null);
   })
 );
@@ -126,8 +102,7 @@ app.put(
 app.delete(
   '/notes/:id',
   handleErrors(async function (req, res) {
-    await pool.query('delete from notes where id = $1', [req.params.id]);
-    await unlink(path.resolve(NOTES_PATH, `${req.params.id}.md`));
+    await simple.del(Number(req.params.id));
     sendResponse(req, res, null);
   })
 );
@@ -135,7 +110,7 @@ app.delete(
 app.get(
   '/notes',
   handleErrors(async function (_req, res) {
-    const {rows} = await pool.query('select * from notes order by id desc');
+    const rows = await simple.list();
     res.json(rows);
   })
 );
@@ -143,10 +118,8 @@ app.get(
 app.get(
   '/notes/:id',
   handleErrors(async function (req, res) {
-    const {rows} = await pool.query('select * from notes where id = $1', [
-      req.params.id,
-    ]);
-    res.json(rows[0]);
+    const row = await simple.read(Number(req.params.id));
+    res.json(row);
   })
 );
 
