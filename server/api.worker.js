@@ -121,7 +121,8 @@ export default {
     if (
       request.url.endsWith('.js') ||
       request.url.endsWith('.css') ||
-      request.url.endsWith('.svg')
+      request.url.endsWith('.svg') ||
+      request.url.endsWith('.map')
     ) {
       return fetch(request);
     }
