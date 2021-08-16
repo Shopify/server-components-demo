@@ -27,6 +27,7 @@
   },
   "scripts": {
     "build": "node scripts/build.js",
-    "build:prod": "NODE_ENV=production STATIC_ROOT=https://server-components.coolcomputerclub.com node scripts/build.js"
+    "build:prod": "NODE_ENV=production STATIC_ROOT=https://server-components.coolcomputerclub.com node scripts/build.js",
+    "deploy": "wrangler publish --env production"
   }
 }
