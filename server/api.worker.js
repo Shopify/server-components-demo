@@ -112,12 +112,19 @@ app.get('/sleep/:ms', async function(req) {
 });
 
 // probably a static asset, fetch from Pages
-app.get('*', async (request) => {
-  return fetch(req);
-});
+// app.get('*', async (request) => {
+//   return fetch(req);
+// });
 
 export default {
   async fetch(request) {
+    if (
+      request.url.endsWith('.js') ||
+      request.url.endsWith('.css') ||
+      request.url.endsWith('.svg')
+    ) {
+      return fetch(request);
+    }
     return app.handle(request).catch(onError);
   },
 };
