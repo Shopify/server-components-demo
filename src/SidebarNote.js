@@ -6,9 +6,10 @@
  *
  */
 
-import {format, isToday} from 'date-fns';
-import excerpts from 'excerpts';
-import marked from 'marked';
+import format from 'date-fns/format';
+import isToday from 'date-fns/isToday';
+// import excerpts from 'excerpts';
+// import marked from 'marked';
 
 import ClientSidebarNote from './SidebarNote.client';
 
@@ -17,7 +18,8 @@ export default function SidebarNote({note}) {
   const lastUpdatedAt = isToday(updatedAt)
     ? format(updatedAt, 'h:mm bb')
     : format(updatedAt, 'M/d/yy');
-  const summary = excerpts(marked(note.body), {words: 20});
+  // const summary = excerpts(marked(note.body), {words: 20});
+  const summary = 'TODO: excerpt';
   return (
     <ClientSidebarNote
       id={note.id}

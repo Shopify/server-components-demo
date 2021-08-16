@@ -1,0 +1,20 @@
+name = "server-components-demo"
+type = "javascript"
+route = ''
+zone_id = ''
+usage_model = ''
+compatibility_flags = []
+workers_dev = true
+account_id = '1fc1df98cc4420fe00367c3ab68c1639'
+
+[env.production]
+workers_dev = false
+route = 'https://server-components-demo.coolcomputerclub.com/*'
+
+[build]
+watch_dir = './out'
+
+[build.upload]
+dir = './out'
+main = './worker.mjs'
+format = 'modules'

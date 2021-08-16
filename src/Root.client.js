@@ -7,7 +7,7 @@
  */
 
 import {useState, Suspense} from 'react';
-import {ErrorBoundary} from 'react-error-boundary';
+import {ErrorBoundary} from './react-error-boundary';
 
 import {useServerResponse} from './Cache.client';
 import {LocationContext} from './LocationContext.client';

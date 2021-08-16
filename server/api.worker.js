@@ -1,0 +1,123 @@
+import {Router} from 'itty-router';
+import {renderToReadableStream as flightRenderToReadableStream} from 'react-server-dom-webpack/writer.browser.server';
+import React from 'react';
+import ReactApp from '../src/App.server';
+import * as simple from '../src/simple-notes-db';
+// import html from '../public/index.html';
+import {renderToReadableStream as fizzRenderToReadableStream} from 'react-dom/server.browser';
+import Html from '../src/Html';
+
+import manifest from '../dist/react-client-manifest.json';
+// create a router
+const app = Router();
+
+function onError(error) {
+  console.error(error.message);
+  console.error(error.stack);
+  return new Response(error.message || 'Server Error', {
+    status: error.status || 500,
+  });
+}
+
+function sleep(n) {
+  return new Promise((resolve) => setTimeout(resolve, n));
+}
+
+// home page html
+app.get('/', async () => {
+  const stream = fizzRenderToReadableStream(<Html />);
+  return new Response(stream);
+});
+
+async function sendResponse(req, redirectToId) {
+  const location = JSON.parse(req.query.location);
+  if (redirectToId) {
+    location.selectedId = redirectToId;
+  }
+
+  const response = flightRenderToReadableStream(
+    <ReactApp
+      {...{
+        selectedId: location.selectedId,
+        isEditing: location.isEditing,
+        searchText: location.searchText,
+      }}
+    />,
+    manifest,
+    {
+      onError(err) {
+        // ? throw?
+      },
+    }
+  );
+
+  return new Response(response, {
+    status: 200,
+    headers: {
+      'X-Location': JSON.stringify(location),
+      'content-type': 'text/html;charset=UTF-8',
+    },
+  });
+}
+
+app.get('/react', async (req) => {
+  return sendResponse(req, null);
+});
+
+app.post('/notes', async (req) => {
+  const {title, body} = await req.json();
+  const note = await simple.create({title, body});
+  const insertedId = note.id;
+  return sendResponse(req, insertedId);
+});
+
+app.put('/notes/:id', async (req) => {
+  const now = new Date();
+  const updatedId = Number(req.params.id);
+  const {title, body} = await req.json();
+  await simple.update({title, body, id: updatedId});
+  return sendResponse(req, null);
+});
+
+app.delete('/notes/:id', async (req) => {
+  await simple.del(Number(req.params.id));
+  return sendResponse(req, null);
+});
+
+app.get('/notes', async (req) => {
+  const rows = await simple.list();
+  return new Response(JSON.stringify(rows), {
+    headers: {
+      'content-type': 'application/json',
+    },
+  });
+});
+
+app.get('/notes/:id', async (req) => {
+  const row = await simple.read(Number(req.params.id));
+  return new Response(JSON.stringify(row), {
+    headers: {
+      'content-type': 'application/json',
+    },
+  });
+});
+
+app.get('/sleep/:ms', async function(req) {
+  await sleep(req.params.ms);
+  return new Response(JSON.stringify({ok: true}), {
+    headers: {
+      'content-type': 'application/json',
+    },
+  });
+});
+
+// probably a static asset, fetch from Pages
+app.get('*', async (request) => {
+  return fetch(req);
+});
+
+export default {
+  async fetch(request) {
+    return app.handle(request).catch(onError);
+  },
+};
