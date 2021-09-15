@@ -901,31 +901,17 @@ var Dispatcher = {
 };
 
 function renderToReadableStream(model, webpackMap, options) {
-  var encoder = new TextEncoder();
-
-  var _TransformStream = new TransformStream(),
-      readable = _TransformStream.readable,
-      writable = _TransformStream.writable;
-
-  var writer = writable.getWriter();
   var request;
-  request = createRequest(model, {
-    enqueue: function (chunk) {
-      writer.write(typeof chunk === 'string' ? encoder.encode(chunk) : chunk);
+  return new ReadableStream({
+    start: function (controller) {
+      request = createRequest(model, controller, webpackMap, options ? options.onError : undefined);
+      startWork(request);
     },
-    close: function () {
-      writer.close();
+    pull: function (controller) {
+      startFlowing(request);
     },
-    error: function (e) {
-      // abort(request);
-      writer.abort(e.message);
-      writer.close();
-    },
-    desiredSize: 512
-  }, webpackMap, options ? options.onError : undefined);
-  startWork(request);
-  startFlowing(request);
-  return readable;
+    cancel: function (reason) {}
+  });
 }
 
 exports.renderToReadableStream = renderToReadableStream;
