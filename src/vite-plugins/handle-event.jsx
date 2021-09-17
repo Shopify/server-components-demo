@@ -4,7 +4,8 @@ export default async function handleEvent(
     request,
     entrypoint,
     streamableResponse,
-    indexTemplate
+    indexTemplate,
+    clientManifest
   }
 ) {
 
@@ -24,6 +25,19 @@ export default async function handleEvent(
 
     const context = {};
 
+    const bundlerConfig = {
+      requireModule: (moduleData) => {
+        console.log(`Require Module: ${moduleData}`);
+      },
+      preloadModule: (moduleData) => {
+        console.log(`Preload Module: ${moduleData}`);
+      },
+      resolveModuleReference: (moduleData) => {
+        console.log(`Resolve Module Reference: ${moduleData}`);
+      },
+      ...clientManifest
+    };
+
     /**
      * Stream back real-user responses, but for bots/etc,
      * use `render` instead. This is because we need to inject <head>
@@ -32,10 +46,10 @@ export default async function handleEvent(
     if (isStreamable) {
       if (isReactHydrationRequest) {
         console.log('Hydrating ... \n\n')
-        hydrate(url, {context, request, response: streamableResponse});
+        hydrate(url, {context, request, response: streamableResponse, bundlerConfig});
       } else {
         console.log('Streaming ... \n\n')
-        stream(url, {context, request, response: streamableResponse});
+        stream(url, {context, request, response: streamableResponse, bundlerConfig});
       }
       return;
     }

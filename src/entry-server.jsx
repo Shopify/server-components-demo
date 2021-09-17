@@ -1,4 +1,5 @@
 import ReactDOMServer from 'react-dom/server'
+import { pipeToNodeWritable as rscPipeToWritable } from './react-server-dom-webpack/writer.node.server'
 import Html from './Html'
 import ReactApp from './App.server'
 
@@ -9,12 +10,16 @@ const DEFAULT_STATE = {
   searchText: '',
 };
 
-const getLocation = (req) => {
+const getLocation = (url) => {
   let location = DEFAULT_STATE;
-  location = {
-    location,
-    ...req.query
-  };
+
+  if (url instanceof  URL) {
+    const query = url.searchParams;
+    location = {
+      ...location,
+      ...JSON.parse(query.get('location'))
+    }
+  }
   return location
 }
 
@@ -42,7 +47,7 @@ export function render (
 
 export function stream (
   url,
-  {context, request, response}
+  {context, request, response, bundlerConfig}
 ) {
   response.socket.on('error', (error) => {
     console.error('Fatal', error);
@@ -54,13 +59,13 @@ export function stream (
 
   const {startWriting, abort} = ReactDOMServer.pipeToNodeWritable(
     <Html>
-      <ReactApp
+      {/* <ReactApp
         {...{
           selectedId: location.selectedId,
           isEditing: location.isEditing,
           searchText: location.searchText,
         }}
-      />
+      /> */}
     </Html>,
     response,
     {
@@ -86,4 +91,48 @@ export function stream (
   );
 
   setTimeout(abort, STREAM_ABORT_TIMEOUT_MS);
+};
+
+export function hydrate (url, {context, request, response, bundlerConfig}) {
+  const location = getLocation(url);
+
+  console.log(location);
+
+  response.socket.on('error', (error) => {
+    console.error('Fatal', error);
+  });
+
+  let didError = false;
+
+  rscPipeToWritable(
+    <ReactApp
+      {...{
+        selectedId: location.selectedId,
+        isEditing: location.isEditing,
+        searchText: location.searchText,
+      }}
+    />,
+    response,
+    bundlerConfig,
+    {
+      /**
+       * When hydrating, we have to wait until `onCompleteAll` to avoid having
+       * `template` and `script` tags inserted and rendered as part of the hydration response.
+       */
+      onCompleteAll() {
+        // Tell React to start writing to the writer
+        // startWriting();
+
+        // response.statusCode = didError ? 500 : 200;
+        // response.end();
+        // generateWireSyntaxFromRenderedHtml(response.toString())
+      },
+      onError(error) {
+        didError = true;
+        console.error(error);
+      },
+    }
+  );
+
+  // setTimeout(abort, STREAM_ABORT_TIMEOUT_MS);
 };

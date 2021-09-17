@@ -1,7 +1,10 @@
-export default function Html({children}) {
+export default function Html({
+  children,
+}) {
   return (
     <html lang="en">
       <head>
+        <script type="module" src="/@vite/client"></script>
         <meta charSet="utf-8" />
         <link
           rel="shortcut icon"
@@ -14,7 +17,26 @@ export default function Html({children}) {
       </head>
       <body>
         <div id="root">{children}</div>
-        <script src="src/index.client.js" type="module" />
+        <script dangerouslySetInnerHTML={{
+          __html: `
+            global = window;
+    
+            global.__vite__module_map__ = new Map();
+
+            // we just use webpack's function names to avoid forking react
+            global.__webpack_chunk_load__ = async function(moduleId) {
+              console.log(moduleId);
+              const mod = await import(moduleId.replace('./src', '/'));
+              global.__vite__module_map__.set(moduleId, mod);
+              return mod;
+            };
+
+            global.__webpack_require__ = function(moduleId) {
+              return global.__vite__module_map__.get(moduleId);
+            };
+          `
+        }}></script>
+        <script src="src/index.client.jsx" type="module" />
       </body>
     </html>
   );

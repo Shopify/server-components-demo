@@ -8,12 +8,8 @@
  */
 
  'use strict';
-
- if (process.env.NODE_ENV !== "production") {
-   (function() {
- 'use strict';
  
- var React = require('react');
+ import React from 'react';
  
  var ReactSharedInternals = React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
  
@@ -131,6 +127,7 @@
    return reference.$$typeof === MODULE_TAG;
  }
  function resolveModuleMetaData(config, moduleReference) {
+   console.log(moduleReference);
    return config[moduleReference.filepath][moduleReference.name];
  }
  
@@ -921,13 +918,10 @@
    };
  }
  
- function pipeToNodeWritable(model, destination, webpackMap, options) {
+ export function pipeToNodeWritable(model, destination, webpackMap, options) {
    var request = createRequest(model, destination, webpackMap, options ? options.onError : undefined);
    destination.on('drain', createDrainHandler(destination, request));
    startWork(request);
  }
- 
- exports.pipeToNodeWritable = pipeToNodeWritable;
-   })();
- }
+
  
