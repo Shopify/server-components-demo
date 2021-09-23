@@ -1,11 +1,23 @@
 import path from 'path';
 import {promises as fs} from 'fs';
 import handleEvent from './handle-event';
-import glob from 'fast-glob';
+import { Parser } from 'acorn'
+import acornClassFields from 'acorn-class-fields'
+import acornStaticClassFeatures from 'acorn-static-class-features'
+import acornJsx from 'acorn-jsx'
+
+let parser = Parser.extend(
+  acornClassFields,
+  acornStaticClassFeatures,
+  acornJsx()
+)
 
 export default () => {
   let config;
+  let devServer;
   let clientManifest = {};
+
+  const resolve = (p) => path.resolve(devServer.config.root, p);
 
   return {
     name: 'vite-plugin-ssr-rsc-middleware',
@@ -16,56 +28,51 @@ export default () => {
       config = _config;
     },
 
-    buildStart() {
-      console.log('\n\nVite buildStart\n\n')
+    async buildStart() {
+      console.log('Vite buildStart ...')
 
       /**
        * By default, it's assumed the path to Hydrogen components is adjacent to the config
        * in node_modules. However, in the case of the Yarn monorepo (or E2E tests), this
        * path needs to be customized. We use an environment variable in that case.
        */
-      const hydrogenComponentPath =
-        process.env.HYDROGEN_PATH ?? './node_modules/@shopify/hydrogen';
+      // const hydrogenComponentPath =
+      //   process.env.HYDROGEN_PATH ?? './node_modules/@shopify/hydrogen';
 
       /**
        * Grab each of the client components in this project and emit them as chunks.
        * This allows us to dynamically import them later during partial hydration in production.
        */
-      const clientComponents = glob
-        .sync(path.resolve(config.root, './src/**/*.client.(j|t)sx'))
-        .concat(
-          glob.sync(
-            path.resolve(
-              config.root,
-              hydrogenComponentPath,
-              'dist/esnext/**/*.client.js'
-            )
-          )
-        );
+      // const clientComponents = glob
+      //   .sync(path.resolve(config.root, './src/**/*.client.(j|t)sx'))
+      //   .concat(
+      //     glob.sync(
+      //       path.resolve(
+      //         config.root,
+      //         hydrogenComponentPath,
+      //         'dist/esnext/**/*.client.js'
+      //       )
+      //     )
+      //   );
 
-      console.log('SSR Client Components\n\n', clientComponents);
+      // console.log('SSR Client Components\n\n', clientComponents);
 
       // Building the client manifest on the fly - update this with vite's module resolve function
-      for (const entryPoint of clientComponents) {
-        const fixedEntrypoint = entryPoint.substring(process.cwd().length)
-        clientManifest[fixedEntrypoint] = {
-          '': {
-            id: fixedEntrypoint,
-            chunks: [fixedEntrypoint],
-            name: '',
-          },
-          '*': {
-            id: fixedEntrypoint,
-            chunks: [fixedEntrypoint],
-            name: '*',
-          },
-          default: {
-            id: fixedEntrypoint,
-            chunks: [fixedEntrypoint],
-            name: 'default',
-          },
-        };
-      }
+      // for (const entryPoint of clientComponents) {
+      //   const fixedEntrypoint = entryPoint.substring(process.cwd().length)
+      //   await devServer.ssrLoadModule(resolve(fixedEntrypoint))
+        // const mod = await devServer.moduleGraph.ensureEntryFromUrl(fixedEntrypoint);
+
+        // console.log(mod);
+        
+      //   clientManifest[fixedEntrypoint] = {
+      //     default: {
+      //       id: fixedEntrypoint,
+      //       chunks: [fixedEntrypoint],
+      //       name: 'default',
+      //     },
+      //   };
+      // }
     },
 
     /**
@@ -75,7 +82,12 @@ export default () => {
      * user's project, and injecting the static HTML into the template.
      */
     configureServer(server) {
-      const resolve = (p) => path.resolve(server.config.root, p);
+      console.log('Vite configureServer ...');
+      devServer = server
+      // server.fs = {
+      //   allow: '__inspect'
+      // }
+
       async function getIndexTemplate(url) {
         const indexHtml = await fs.readFile(resolve('index.html'), 'utf-8');
         return await server.transformIndexHtml(url, indexHtml);
@@ -87,8 +99,10 @@ export default () => {
           indexTemplate: getIndexTemplate,
           getServerEntrypoint: async () =>
             await server.ssrLoadModule(resolve('./src/entry-server')),
-          devServer: server,
-          clientManifest,
+          devServer,
+          getClientManifest: () => {
+            return clientManifest;
+          },
         })
       );
     },
@@ -132,31 +146,160 @@ export default () => {
     transform(src, id, ssr) {
       if (!ssr) return null;
 
-      /**
-       * When a server component imports a client component, tag a `?fromServer`
-       * identifier at the end of the import to indicate that we should transform
-       * it with a ClientMarker (below).
-       *
-       * We are manually passing `@shopify/hydrogen/client` as an additional "from"
-       * identifier to allow local Server Components to import them as tagged Client Components.
-       * We should also accept this as a plugin argument for other third-party packages.
-       */
-      // if (/\.server\.(j|t)sx?$/.test(id)) {
-      //   return tagClientComponents(src);
-      // }
-
       if (/\.client\.(j|t)sx?$/.test(id)) {
         console.log('Vite transform', id.substring(process.cwd().length))
+
+        // console.log(devServer.moduleGraph);
+        const module = devServer.moduleGraph.idToModuleMap.get(id);
+
+        if (!module.rscTransformResult) {
+
+          // Get the parsed module
+          let parsedModule;
+          try {
+            parsedModule = parser.parse(src, {
+              sourceType: 'module',
+              ecmaVersion: 'latest',
+              locations: true
+            });
+          } catch (e) {
+            console.log(chalk.red(`failed to parse ${module.url}`))
+            throw e
+          }
+        
+          // Build the React module reference file based on the file exports
+          // For each exports we need to reconstruct the module references
+          // For example:
+          //
+          // Original client module (/src/TestElement.jsx):
+          //
+          //   export default function TestElement() {
+          //     return (<div>Test Element</div>)
+          //   }
+          //   export function TestElementAlt1() {
+          //     return (<div>Test Element Alt 1</div>)
+          //   }
+          //   export function TestElementAlt2() {
+          //     return (<div>Test Element Alt 2</div>)
+          //   }
+          //
+          // We need to construct the following module reference that will be
+          // parsed by RSC:
+          //
+          //   const MODULE_REFERENCE = Symbol.for('react.module.reference');
+          //   export default {
+          //     $$typeof: MODULE_REFERENCE, 
+          //     filepath: '/src/TestElement.jsx',
+          //     name: 'default'
+          //   };
+          //   const TestElementAlt1 = {
+          //     $$typeof: MODULE_REFERENCE, 
+          //     filepath: '/src/TestElement.jsx',
+          //     name: 'TestElementAlt1'
+          //   };
+          //   const TestElementAlt2 = {
+          //     $$typeof: MODULE_REFERENCE, 
+          //     filepath: '/src/TestElement.jsx',
+          //     name: 'TestElementAlt2'
+          //   };
+          //   export {
+          //     TestElementAlt1,
+          //     TestElementAlt2
+          //   }
+          //
+          // We also need matching client manifest for this module:
+          //
+          // clientManifest['/src/TestElement.jsx'] = {
+          //   'default': {
+          //     id: '/src/TestElement.jsx',
+          //     chunks: ['/src/TestElement.jsx'],
+          //     name: 'default',
+          //   },
+          //   'TestElementAlt1': {
+          //     id: '/src/TestElement.jsx',
+          //     chunks: ['/src/TestElement.jsx'],
+          //     name: 'TestElementAlt1',
+          //   },
+          //   'TestElementAlt2': {
+          //     id: '/src/TestElement.jsx',
+          //     chunks: ['/src/TestElement.jsx'],
+          //     name: 'TestElementAlt2',
+          //   },
+          // }
+          //
+          // Note: This client manifest is in the data shape that react-server-dom-webpack expects
+
+          const namedExports = {};
+          let rscTransform = `const MODULE_REFERENCE = Symbol.for('react.module.reference');`;
+          for (const node of parsedModule.body) {
+            if (node.type === 'ExportDefaultDeclaration') {
+              rscTransform += `
+                export default {
+                  $$typeof: MODULE_REFERENCE, 
+                  filepath: '${module.url}',
+                  name: 'default'
+                };
+              `;
+              clientManifest[module.url] = {
+                'default': {
+                  id: module.url,
+                  chunks: [module.url],
+                  name: 'default',
+                }
+              }
+            }
+
+            if (node.type === 'ExportNamedDeclaration') {
+              namedExports[node.declaration.id.name] = {
+                id: module.url,
+                chunks: [module.url],
+                name: node.declaration.id.name,
+              }
+            }
+
+            // register client imported modules
+            if (node.type === 'ImportDeclaration') {
+              console.log(node);
+            }
+          }
+
+          // Build the react module reference for named exports
+          const namedExportsKeys = Object.keys(namedExports);
+          if (namedExportsKeys.length > 0) {
+            rscTransform += `
+              ${namedExportsKeys.map((key) => {
+                return `
+                  const ${key} = {
+                    $$typeof: MODULE_REFERENCE, 
+                    filepath: '${module.url}',
+                    name: '${key}'
+                  };
+                `;
+              }).join('')}
+              export {
+              ${namedExportsKeys.map((key) => {
+                return `${key}`;
+              }).join(',')}
+              }
+            `;
+            clientManifest[module.url] = {
+              ...clientManifest[module.url],
+              ...namedExports
+            };
+          }
+          module.rscTransformResult = rscTransform;
+        }
+
+        // console.log(module);
+        
+        // console.log('\n\n Map: \n', map)
+        // const importers = fileModuleMap.importers;
+        // for (let module of importers.values()) {
+        //   console.log(module);
+        // }
   
         return {
-          code: `
-            const MODULE_REFERENCE = Symbol.for('react.module.reference');
-            export default {
-              $$typeof: MODULE_REFERENCE, 
-              filepath: '${id.substring(process.cwd().length)}',
-              name: 'default'
-            }
-          `
+          code: module.rscTransformResult
         };
       }
     },
@@ -168,7 +311,7 @@ function hydrogenMiddleware({
   indexTemplate,
   getServerEntrypoint,
   devServer,
-  clientManifest
+  getClientManifest
 }) {
   return async function (
     request,
@@ -177,6 +320,11 @@ function hydrogenMiddleware({
   ) {
     const url = new URL('http://' + request.headers.host + request.originalUrl);
     const isReactHydrationRequest = url.pathname === '/react';
+
+    // Vite inspect plugin path
+    if ( /\/__inspect/.test(url.pathname)) {
+      return next();
+    }
 
     /**
      * If it's a dev environment, it's assumed that Vite's dev server is handling
@@ -227,9 +375,11 @@ function hydrogenMiddleware({
           entrypoint: await getServerEntrypoint(),
           indexTemplate,
           streamableResponse: response,
-          clientManifest
+          clientManifest: getClientManifest()
         }
       );
+
+      // console.log(devServer);
 
       /**
        * If a `Response` was returned, that means it was not streamed.

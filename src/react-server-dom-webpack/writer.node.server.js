@@ -103,11 +103,13 @@
    return stringToChunk(row);
  }
  function processModelChunk(request, id, model) {
+  console.log('processModelChunk: ', id, model);
    var json = stringify(model, request.toJSON);
    var row = serializeRowHeader('J', id) + json + '\n';
    return stringToChunk(row);
  }
  function processModuleChunk(request, id, moduleMetaData) {
+   console.log('processModuleChunk: ', moduleMetaData);
    var json = stringify(moduleMetaData);
    var row = serializeRowHeader('M', id) + json + '\n';
    return stringToChunk(row);

@@ -11,7 +11,7 @@ import {Suspense} from 'react';
 import Note from './Note.server';
 import NoteList from './NoteList.server';
 import EditButton from './EditButton.client';
-import SearchField from './SearchField.client';
+import SearchField, {TestField} from './SearchField.client';
 import NoteSkeleton from './NoteSkeleton';
 import NoteListSkeleton from './NoteListSkeleton';
 
@@ -32,6 +32,7 @@ export default function App({selectedId, isEditing, searchText}) {
         </section>
         <section className="sidebar-menu" role="menubar">
           <SearchField />
+          <TestField />
           <EditButton noteId={null}>New</EditButton>
         </section>
         <nav>
