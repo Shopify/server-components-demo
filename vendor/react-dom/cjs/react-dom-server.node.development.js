@@ -5466,6 +5466,7 @@ function renderLazyComponent(request, task, lazyComponent, props, ref) {
 }
 
 function renderElement(request, task, type, props, ref) {
+  console.log(`React DOM: ${request}`);
   if (typeof type === 'function') {
     if (shouldConstruct$1(type)) {
       renderClassComponent(request, task, type, props);

@@ -68,14 +68,14 @@ export default function SidebarNote({id, title, children, expandedChildren}) {
         }}>
         {isExpanded ? (
           <img
-            src={`${STATIC_ROOT}/chevron-down.svg`}
+            src="/chevron-down.svg"
             width="10px"
             height="10px"
             alt="Collapse"
           />
         ) : (
           <img
-            src={`${STATIC_ROOT}/chevron-up.svg`}
+            src="/chevron-up.svg"
             width="10px"
             height="10px"
             alt="Expand"

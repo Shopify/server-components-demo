@@ -29,6 +29,7 @@ function Content() {
     searchText: '',
   });
   const response = useServerResponse(location);
+  console.log(response.readRoot());
   return (
     <LocationContext.Provider value={[location, setLocation]}>
       {response.readRoot()}

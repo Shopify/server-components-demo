@@ -39,3 +39,7 @@ export default function SearchField() {
     </form>
   );
 }
+
+export function TestField() {
+  return (<div></div>);
+}
